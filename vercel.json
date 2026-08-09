@@ -6,7 +6,7 @@
       "use": "@vercel/node",
       "config": {
         "includeFiles": [
-          "node_modules/.prisma/client/**",
+          "apps/backend/dist/generated/client/**",
           "apps/backend/prisma/dev.db",
           "apps/backend/prisma/schema.prisma"
         ]
