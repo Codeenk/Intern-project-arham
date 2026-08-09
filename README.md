@@ -4,6 +4,15 @@ Production-quality take-home coding assignment isolating the internal operations
 
 ---
 
+## 🔗 Production & Deployment Links
+
+- **GitHub Repository:** [https://github.com/Codeenk/Intern-project-arham](https://github.com/Codeenk/Intern-project-arham)
+- **Internal Dashboard (Part B):** [https://fintech-intern-assn-1.vercel.app](https://fintech-intern-assn-1.vercel.app)
+- **Backend Serverless API:** [https://fintech-intern-assn-1.vercel.app/api](https://fintech-intern-assn-1.vercel.app/api)
+- **Mock BSE API (Part A):** [https://fintech-intern-assn-1.vercel.app/api/bse/clients](https://fintech-intern-assn-1.vercel.app/api/bse/clients)
+
+---
+
 ## ⚡ Hosting & Free-Tier Architecture Summary
 
 - **Hosting Provider:** Vercel Free Tier (**Total Hosting Cost = ₹0.00**)

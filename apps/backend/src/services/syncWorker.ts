@@ -351,7 +351,7 @@ export class SyncWorker {
 
             await tx.trade.deleteMany({ where: { id: { in: stagedTradeIds } } });
             await tx.trade.createMany({
-              data: stagedTrades.map((t) => ({
+              data: stagedTrades.map((t: any) => ({
                 id: t.id,
                 clientId: t.clientId,
                 tradeDate: t.tradeDate,
