@@ -2,7 +2,7 @@
   "version": 2,
   "builds": [
     {
-      "src": "apps/backend/src/server.ts",
+      "src": "apps/backend/dist/server.js",
       "use": "@vercel/node",
       "config": {
         "includeFiles": [
@@ -12,7 +12,7 @@
       }
     },
     {
-      "src": "apps/mock-bse/src/server.ts",
+      "src": "apps/mock-bse/dist/server.js",
       "use": "@vercel/node"
     },
     {
@@ -26,15 +26,15 @@
   "routes": [
     {
       "src": "/api/bse/(.*)",
-      "dest": "apps/mock-bse/src/server.ts"
+      "dest": "apps/mock-bse/dist/server.js"
     },
     {
       "src": "/api/internal/(.*)",
-      "dest": "apps/mock-bse/src/server.ts"
+      "dest": "apps/mock-bse/dist/server.js"
     },
     {
       "src": "/api/(.*)",
-      "dest": "apps/backend/src/server.ts"
+      "dest": "apps/backend/dist/server.js"
     },
     {
       "handle": "filesystem"
