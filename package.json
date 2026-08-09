@@ -12,7 +12,7 @@
     "dev:backend": "npm --workspace=apps/backend run dev",
     "dev:dashboard": "npm --workspace=apps/dashboard run dev",
     "dev": "concurrently \"npm run dev:bse\" \"npm run dev:backend\" \"npm run dev:dashboard\"",
-    "build": "npm run build --workspaces",
+    "build": "npm run build --workspace=@arham/shared && npm run build --workspace=@arham/mock-bse && npm run build --workspace=@arham/backend && npm run build --workspace=@arham/dashboard",
     "test": "vitest run",
     "db:setup": "npm --workspace=apps/backend run db:setup"
   },

@@ -166,7 +166,7 @@ app.get('/api/bse/trades/:clientId', async (req: Request, res: Response) => {
 export default app;
 export { app };
 
-if (!process.env.VERCEL && process.env.NODE_ENV !== 'test') {
+if (!process.env.VERCEL && process.env.NODE_ENV !== 'test' && require.main === module) {
   app.listen(PORT, () => {
     console.log(`[Mock BSE] Server running on http://localhost:${PORT}`);
   });

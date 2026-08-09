@@ -102,7 +102,7 @@ export class SyncWorker {
       };
     }
 
-    const defaultUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://127.0.0.1:3001';
+    const defaultUrl = `http://127.0.0.1:${process.env.PORT || 4000}`;
     const bseBaseUrl = process.env.BSE_API_URL || defaultUrl;
     const headers: Record<string, string> = {};
     if (options.failureModeHeader) {
@@ -335,6 +335,13 @@ export class SyncWorker {
             const stagedClientIds = stagedClients.map((c: any) => c.id);
             const stagedTradeIds = stagedTrades.map((t: any) => t.id);
 
+            // Preserve employee-client mappings across publishes. Deleting clients cascades
+            // EmployeeClientMapping rows (FK onDelete: Cascade), so snapshot them first and
+            // restore them after the new client snapshot is inserted.
+            const preservedMappings = await tx.employeeClientMapping.findMany({
+              where: { clientId: { in: stagedClientIds } }
+            });
+
             // Fast bulk deletion of existing IDs + bulk insertion (0.02s completion)
             await tx.client.deleteMany({ where: { id: { in: stagedClientIds } } });
             await tx.client.createMany({
@@ -347,6 +354,17 @@ export class SyncWorker {
                 createdAt: c.createdAt
               }))
             });
+
+            // Restore preserved mappings against the freshly published client snapshot
+            if (preservedMappings.length > 0) {
+              await tx.employeeClientMapping.createMany({
+                data: preservedMappings.map((m: any) => ({
+                  id: m.id,
+                  employeeId: m.employeeId,
+                  clientId: m.clientId
+                }))
+              });
+            }
 
             await tx.trade.deleteMany({ where: { id: { in: stagedTradeIds } } });
             await tx.trade.createMany({

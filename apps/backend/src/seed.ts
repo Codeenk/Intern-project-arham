@@ -1,4 +1,4 @@
-import { PrismaClient } from './generated/client/index.js';
+import { PrismaClient } from '@prisma/client';
 import { generateSeedData } from '@arham/shared';
 
 const prisma = new PrismaClient();

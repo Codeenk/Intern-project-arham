@@ -10,3 +10,5 @@ prisma/dev.db-journal
 *.db
 *.db-journal
 .vercel
+vercel.json
+apps/backend/src/generated

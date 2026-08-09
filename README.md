@@ -1,125 +1,134 @@
-# Arham Fintech Private Limited — Stock Broking Operations Portal
+# Arham Fintech — Stock Broking Operations Portal
 
-Production-quality take-home coding assignment isolating the internal operations portal from a slow/unreliable BSE API source using a **Vercel Free Tier Compatible Serverless Architecture** and persistent database snapshotting.
+Production-quality take-home coding assignment that isolates the internal operations portal from a slow/unreliable BSE API source using a **chunked, resumable, atomic snapshot synchronization engine** backed by **PostgreSQL**.
 
----
-
-## 🔗 Production & Deployment Links
-
-- **GitHub Repository:** [https://github.com/Codeenk/Intern-project-arham](https://github.com/Codeenk/Intern-project-arham)
-- **Internal Dashboard (Part B):** [https://fintech-intern-assn-1.vercel.app](https://fintech-intern-assn-1.vercel.app)
-- **Backend Serverless API:** [https://fintech-intern-assn-1.vercel.app/api](https://fintech-intern-assn-1.vercel.app/api)
-- **Mock BSE API (Part A):** [https://fintech-intern-assn-1.vercel.app/api/bse/clients](https://fintech-intern-assn-1.vercel.app/api/bse/clients)
+> **Hosted evaluation deployment** — deployed on Render Free tier. This is a *temporary* hosted evaluation deployment, **not** permanent production infrastructure. Render Free Web Services sleep after ~15 minutes of inactivity (cold start ≈ 1 minute) and Render Free PostgreSQL expires after 30 days.
 
 ---
 
-## ⚡ Hosting & Free-Tier Architecture Summary
+## 🔗 Deployment Links
 
-- **Hosting Provider:** Vercel Free Tier (**Total Hosting Cost = ₹0.00**)
-- **Database:** Free persistent PostgreSQL-compatible database (configured via `DATABASE_URL`)
-- **Backend Architecture:** Serverless-compatible Node.js REST API
-- **External Source Isolation:** Dashboard reads strictly from local canonical database snapshots. Browser requests **never** wait for external BSE pulls.
-- **Synchronization Engine:** Chunked resumable state machine persisted in PostgreSQL.
-- **30-Second HTTP & 10-Minute Upstream Constraint Solution:** Each sync step completes in < 1 second. No single HTTP request remains open for the 10-minute BSE pull.
+- **GitHub Repository:** `https://github.com/Codeenk/arham-fintech-take-home`
+- **Hosted Evaluation Application (Dashboard + Backend + Mock BSE + SSE):** `https://<your-service>.onrender.com`
+  - set this to your actual Render URL (`*.onrender.com`) after your service is created.
+- Dashboard, Backend, Mock BSE, and SSE all share the **same single URL**.
 
 ---
 
-## 🏗️ System Architecture & Workflow
+## 🏗️ Architecture (ONE Render Service)
 
 ```
-Vercel Free Tier ($0.00 Cost)
-    │
-    ├── Dashboard (React + Vite static web app)
-    │     │
-    │     ├── Sub-second reads (< 100ms)
-    │     ▼
-    ├── Backend API (Vercel Serverless Functions)
-    │     │
-    │     ├── Reads/Writes Canonical Snapshot
-    │     ▼
-    ├── PostgreSQL Database (Persistent Data Store)
-    │     ├── SyncRun (State machine, cursors, attempt tracking)
-    │     ├── StagingClient & StagingTrade (Chunk staging)
-    │     └── Client, Trade, Employee, Mapping (Canonical data)
-    │
-    └── Mock BSE API (Chunked pagination with delay & 20% failure simulation)
+GitHub
+   ↓
+Render Free (Docker Web Service) — ONE public URL
+   ├── React Dashboard          GET /              (served from apps/dashboard/dist)
+   ├── Express Backend          /api/*             (portal + auth + incentives)
+   ├── Mock BSE                 /api/bse/*         (clients, trades, internal data)
+   └── SSE                      /api/events        (realtime DATA_UPDATED events)
+   ↓
+Render Free PostgreSQL          (persistent canonical + staging + sync state)
 ```
+
+- **Hosting:** Render Free (Docker) — **₹0**
+- **Database:** Render Free PostgreSQL — **₹0**
+- One Render account, one Web Service, one PostgreSQL database, one public URL.
+- No Vercel / Neon / Supabase / Railway / SQLite / paid infrastructure.
+
+The Express process running on `process.env.PORT` serves the built React dashboard, the internal backend routes, the Mock BSE router (mounted under `/api/bse`), and the SSE stream from one listener.
 
 ---
 
 ## 🔄 Chunked Resumable Synchronization Protocol
 
-To solve the assignment's scenario where **BSE pulls take 5–10 minutes**, **networks terminate HTTP requests after 30 seconds**, and **20% of pulls fail midway**, the synchronization worker uses a persistent state machine stored in PostgreSQL:
+The sync engine solves the assignment scenario (BSE pulls can take 5–10 minutes, HTTP requests terminate after ~30s, and ~20% of pulls fail midway):
 
-1. **Initiation (`POST /api/sync/trigger`):**
-   Creates a `SyncRun` record in PostgreSQL with status `STAGING_CLIENTS`, `clientCursor = 0`, `tradeCursor = 0`, and `attempt = 1`.
-2. **Chunked Resumable Execution (`POST /api/sync/step`):**
-   - **Clients Staging:** Fetches bounded chunks of 100 clients from `/api/bse/clients?offset=...&limit=100`, inserts into `StagingClient` table in PostgreSQL, and advances `clientCursor`.
-   - **Trades Staging:** Fetches bounded chunks of 500 trades from `/api/bse/trades?offset=...&limit=500`, inserts into `StagingTrade` table in PostgreSQL, and advances `tradeCursor`.
-   - **Validation & Deduplication:** Validates staged records and deduplicates trades by trade ID.
-   - **Atomic Publishing:** Runs a sub-second PostgreSQL transaction (`prisma.$transaction`) that bulk-publishes staged data to active `Client` and `Trade` tables with snapshot version $N$.
-3. **Fault Tolerance & Resumable Retries:**
-   - If a chunk fails (e.g., 20% random BSE disruption), the failure is recorded in `SyncRun.attempt` and retried with exponential backoff.
-   - **Already staged chunks remain preserved in PostgreSQL!** The retry resumes directly from the failed chunk cursor rather than restarting the entire 10-minute pull.
-4. **Overlapping Version Protection:**
-   - If Sync Version 42 publishes first, an older Sync Version 41 attempting to publish is marked `DISCARDED` by the database transaction, preventing stale data overwrites.
+1. **`POST /api/sync/step`** initializes a persistent `SyncRun` (status, clientCursor, tradeCursor, attempt) in PostgreSQL and stages short chunks:
+   - Clients: bounded chunks of 100 from `/api/bse/clients?offset=…&limit=100` → `StagingClient`
+   - Trades: bounded chunks of 500 from `/api/bse/trades?offset=…&limit=500` → `StagingTrade`
+2. Each step returns the next cursor; the caller re-invokes `/api/sync/step` until `complete:true`. Each HTTP request stays **well under 1 second**.
+3. **Validation & deduplication** occurs before publishing.
+4. **Atomic publish:** a single PostgreSQL transaction bulk-publishes the staged snapshot to `Client`/`Trade` with snapshot version `N`, preserves employee–client mappings, marks `SyncRun SUCCESS`, and broadcasts **`DATA_UPDATED`** over SSE.
+5. **Fault tolerance:** a failed chunk records `attempt` and resumes from the saved cursor; retries preserve already-staged chunks. Canonical snapshot is never replaced by a partial pull.
+6. **Overlapping sync protection:** an older version completing after a newer version is marked `DISCARDED` and can never overwrite the active snapshot.
+
+> The dashboard's **Sync Now** button drives the resumable step loop through `POST /api/sync/step`; no paid background workers or cron are introduced.
 
 ---
 
-## 👥 Employee Roles & Scoping Model
+## 👥 Employee Roles & Scoping
 
-- **Management Accounts (`EMP-001`, `EMP-002`):**
-  - Global oversight visibility across all 400 clients, 18 relationship managers, and 4,000 trades.
-  - Access to `GET /api/mappings` and global incentive breakdowns.
-  - Ownership: 0 mapped clients.
-- **Relationship Managers (`EMP-003` to `EMP-020`):**
-  - Mapped to clients non-uniformly (e.g. `EMP-003`: 12 clients, `EMP-007`: 38 clients, `EMP-020`: 41 clients).
-  - Strict backend authorization (`HTTP 403 Forbidden`) prevents an RM from viewing another RM's mapped clients or incentive details.
+- **Management (`EMP-001`, `EMP-002`):** global visibility across all 400 clients, 18 RMs, and 4,000 trades; access to all mappings and global incentives. (0 mapped clients.)
+- **Relationship Managers (`EMP-003`–`EMP-020`):** non-uniform mapped-client ownership; strict backend authorization returns **HTTP 403** if an RM tries to read another RM's clients/incentive.
+- Authorization headers used by the demo dashboard (not production auth): `x-user-role`, `x-employee-id`.
 
 ---
 
 ## 🚀 Environment Variables
 
-Configure the following environment variables on Vercel:
-
-| Variable | Description | Default / Example |
+| Variable | Description | Default |
 | :--- | :--- | :--- |
-| `DATABASE_URL` | PostgreSQL connection string | `postgresql://user:pass@ep-host.postgresql.provider.com/neondb` |
-| `BSE_API_URL` | Mock BSE API base URL | `http://127.0.0.1:3001` or deployed URL |
-| `BSE_DELAY_MS` | Simulated BSE pull delay (ms) | `50` (or `600000` for 10-min simulation) |
-| `BSE_FAILURE_RATE` | Random BSE mid-pull failure rate | `0.20` (20%) |
-| `BSE_SEED` | Seed for deterministic data generation | `12345` |
+| `DATABASE_URL` | Render Free PostgreSQL connection string | **required** |
+| `BSE_DELAY_MS` | Simulated BSE pull delay (ms) | `50` |
+| `BSE_FAILURE_RATE` | Random BSE mid-pull failure rate | `0.20` |
+| `BSE_SEED` | Deterministic data-generation seed | `12345` |
 | `MAX_RETRIES` | Max sync retry attempts | `3` |
+| `PORT` | Render injects the HTTP port | `10000` |
 
 ---
 
-## 🧪 Testing & Verification
+## 🐳 Local Verification (Docker)
 
-Run the full integration test suite covering role scoping, database constraints, chunked resumable sync, and fault tolerance:
+The `Dockerfile` builds the whole app and starts **one** Node/Express process. Without Docker, the exact build steps are: `npm ci && npm run build` then `node apps/backend/dist/index.js`.
 
 ```bash
-npm run test
+docker build -t arham-fintech .
+docker run \
+  -e DATABASE_URL=postgresql://user:pass@host/db \
+  -e BSE_DELAY_MS=50 \
+  -e BSE_FAILURE_RATE=0.20 \
+  -e BSE_SEED=12345 \
+  -e MAX_RETRIES=3 \
+  -p 4000:4000 arham-fintech
 ```
 
-Expected output:
+Apply migrations + seed once (idempotent):
+
+```bash
+npx prisma migrate deploy --schema apps/backend/prisma/schema.prisma
+node apps/backend/dist/seed.js
 ```
- Test Files  2 passed (2)
-      Tests  19 passed (19)
-```
+
+Expected seed: **20 employees, 400 clients, 400 mappings, 4000 trades** (uneven distribution). Re-running the seed does not duplicate data.
 
 ---
 
-## 📊 Database Audit & Metrics Report
-
-Run the database inspection script to log exact empirical statistics:
+## 🧪 Testing
 
 ```bash
-npx tsx scripts/inspectDb.ts
+npm test
 ```
 
-Output highlights:
-- **Total Employees:** 20 (2 Management, 18 RMs)
-- **Total Clients:** 400 (Unique `clientId` mapping constraint enforced)
-- **Total Mappings:** 400 (Unevenly distributed: 11 to 41 clients per RM)
-- **Total Trades:** 4,000 (Unevenly distributed: 1 to 33 trades per client)
-- **Firm Grand Total Incentive Payout:** ₹4,35,471.04
+19 integration tests cover role scoping/auth, chunked resumable sync, atomic publish, SSE, retries, duplicate prevention, mid-pull failure, and overlapping-sync discard.
+
+---
+
+## 🗄 Database Schema / Migrations
+
+- **Provider:** PostgreSQL (Prisma), migrations at `apps/backend/prisma/migrations`.
+- Render **Pre-Deploy Command** applies them (no destructive `db push --reset` against production):
+  `npx prisma migrate deploy --schema apps/backend/prisma/schema.prisma`
+- State maintained in PostgreSQL: employees, clients, mappings, trades, `SyncRun`, `StagingClient`, `StagingTrade`. No SQLite, filesystem state, or in-memory canonical data.
+
+---
+
+## ⚠️ Known Free-Tier Limitations (honest)
+
+- **Render Free Web Service** may sleep after ~15 minutes of inactivity; the first request after sleep triggers a cold start of about one minute. This is **not** the application's normal read performance (warm reads complete well under one second).
+- **Render Free PostgreSQL expires after 30 days** and has 1 GB storage, no backups, and no managed connection pooling.
+- This is a **temporary hosted evaluation deployment**, not permanent production infrastructure.
+
+---
+
+## 🔐 Security
+
+No `.env`, `DATABASE_URL`, passwords, API keys, tokens, private keys, or confidential materials are committed. Secrets are injected via Render environment variables only.
