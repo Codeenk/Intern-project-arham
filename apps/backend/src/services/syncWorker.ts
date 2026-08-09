@@ -339,7 +339,7 @@ export class SyncWorker {
             // Fast bulk deletion of existing IDs + bulk insertion (0.02s completion)
             await tx.client.deleteMany({ where: { id: { in: stagedClientIds } } });
             await tx.client.createMany({
-              data: stagedClients.map((c) => ({
+              data: stagedClients.map((c: any) => ({
                 id: c.id,
                 name: c.name,
                 email: c.email,
