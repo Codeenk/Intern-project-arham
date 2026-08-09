@@ -132,11 +132,11 @@ export class SyncWorker {
 
         // Delete previous staging for these IDs & bulk create
         if (clientsChunk.length > 0) {
-          const validClients = clientsChunk.filter((c) => c && c.id && c.name && c.email);
-          const ids = validClients.map((c) => c.id);
+          const validClients = clientsChunk.filter((c: any) => c && c.id && c.name && c.email);
+          const ids = validClients.map((c: any) => c.id);
           await prisma.stagingClient.deleteMany({ where: { id: { in: ids } } });
           await prisma.stagingClient.createMany({
-            data: validClients.map((c) => ({
+            data: validClients.map((c: any) => ({
               id: c.id,
               syncVersion: syncRun.version,
               name: c.name,
@@ -196,11 +196,11 @@ export class SyncWorker {
 
         // Delete previous staging for these IDs & bulk create
         if (tradesChunk.length > 0) {
-          const validTrades = tradesChunk.filter((t) => t && t.id && t.clientId && t.tradeDate);
-          const ids = validTrades.map((t) => t.id);
+          const validTrades = tradesChunk.filter((t: any) => t && t.id && t.clientId && t.tradeDate);
+          const ids = validTrades.map((t: any) => t.id);
           await prisma.stagingTrade.deleteMany({ where: { id: { in: ids } } });
           await prisma.stagingTrade.createMany({
-            data: validTrades.map((t) => ({
+            data: validTrades.map((t: any) => ({
               id: t.id,
               syncVersion: syncRun.version,
               clientId: t.clientId,
@@ -254,7 +254,7 @@ export class SyncWorker {
           throw new Error('SYNC_VALIDATION_FAILED: Empty staged client dataset');
         }
 
-        const validClientIds = new Set(stagedClients.map((c) => c.id));
+        const validClientIds = new Set(stagedClients.map((c: any) => c.id));
 
         const stagedTrades = await prisma.stagingTrade.findMany({
           where: { syncVersion: syncRun.version }
