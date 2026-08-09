@@ -333,8 +333,8 @@ export class SyncWorker {
 
         await prisma.$transaction(
           async (tx) => {
-            const stagedClientIds = stagedClients.map((c) => c.id);
-            const stagedTradeIds = stagedTrades.map((t) => t.id);
+            const stagedClientIds = stagedClients.map((c: any) => c.id);
+            const stagedTradeIds = stagedTrades.map((t: any) => t.id);
 
             // Fast bulk deletion of existing IDs + bulk insertion (0.02s completion)
             await tx.client.deleteMany({ where: { id: { in: stagedClientIds } } });
