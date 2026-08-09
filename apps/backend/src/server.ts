@@ -22,9 +22,15 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Public health check
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'UP', timestamp: new Date().toISOString() });
+// Public health check with detailed diagnostics
+app.get('/api/health', async (req, res) => {
+  try {
+    const { prisma } = await import('./db.js');
+    const clientCount = await prisma.client.count();
+    res.json({ status: 'UP', clientCount, timestamp: new Date().toISOString() });
+  } catch (err: any) {
+    res.status(500).json({ status: 'ERROR', message: err?.message, stack: err?.stack });
+  }
 });
 
 // SSE Events stream (public / auth flexible)
