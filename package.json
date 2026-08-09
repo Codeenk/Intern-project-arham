@@ -1,0 +1,23 @@
+{
+  "name": "arham-fintech-assn",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Production-quality stock broking operations portal with mock BSE sync isolation and snapshot consistency",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:bse": "npm --workspace=apps/mock-bse run dev",
+    "dev:backend": "npm --workspace=apps/backend run dev",
+    "dev:dashboard": "npm --workspace=apps/dashboard run dev",
+    "dev": "concurrently \"npm run dev:bse\" \"npm run dev:backend\" \"npm run dev:dashboard\"",
+    "build": "npm run build --workspaces",
+    "test": "vitest run",
+    "db:setup": "npm --workspace=apps/backend run db:setup"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "typescript": "^5.3.3"
+  }
+}
