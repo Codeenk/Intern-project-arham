@@ -46,6 +46,7 @@ app.get('/api/sync/status', getSyncStatus);
 app.post('/api/sync/trigger', triggerSync);
 app.post('/api/sync/step', executeSyncStep);
 
+export default app;
 export { app };
 
 const PORT = process.env.PORT || 4000;

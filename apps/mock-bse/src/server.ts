@@ -163,6 +163,7 @@ app.get('/api/bse/trades/:clientId', async (req: Request, res: Response) => {
   res.json(trades);
 });
 
+export default app;
 export { app };
 
 if (process.env.NODE_ENV !== 'test') {
