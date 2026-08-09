@@ -3,6 +3,16 @@
   "builds": [
     {
       "src": "apps/backend/src/server.ts",
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": [
+          "apps/backend/prisma/dev.db",
+          "apps/backend/prisma/schema.prisma"
+        ]
+      }
+    },
+    {
+      "src": "apps/mock-bse/src/server.ts",
       "use": "@vercel/node"
     },
     {
@@ -14,6 +24,14 @@
     }
   ],
   "routes": [
+    {
+      "src": "/api/bse/(.*)",
+      "dest": "apps/mock-bse/src/server.ts"
+    },
+    {
+      "src": "/api/internal/(.*)",
+      "dest": "apps/mock-bse/src/server.ts"
+    },
     {
       "src": "/api/(.*)",
       "dest": "apps/backend/src/server.ts"

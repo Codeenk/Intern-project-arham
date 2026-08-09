@@ -1,11 +1,9 @@
 import { Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../db.js';
 import { AuthenticatedRequest } from '../middleware/auth.js';
 import { calculateAllIncentives, calculateIncentivesForEmployee } from '../services/incentiveCalculator.js';
 import { syncWorker } from '../services/syncWorker.js';
 import { sseManager } from '../services/sseManager.js';
-
-const prisma = new PrismaClient();
 
 async function getActiveSnapshotVersion(): Promise<number> {
   const lastClient = await prisma.client.findFirst({

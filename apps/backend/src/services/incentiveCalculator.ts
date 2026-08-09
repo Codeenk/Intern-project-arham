@@ -1,7 +1,5 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../db.js';
 import { IncentiveSummary } from '@arham/shared';
-
-const prisma = new PrismaClient();
 
 export async function calculateIncentivesForEmployee(
   employeeId: string,

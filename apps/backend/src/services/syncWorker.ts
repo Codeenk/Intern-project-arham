@@ -1,8 +1,6 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../db.js';
 import { Client, Trade, SyncStepResult } from '@arham/shared';
 import { sseManager } from './sseManager.js';
-
-const prisma = new PrismaClient();
 
 export interface SyncOptions {
   failureModeHeader?: string;
@@ -104,7 +102,8 @@ export class SyncWorker {
       };
     }
 
-    const bseBaseUrl = process.env.BSE_API_URL || 'http://127.0.0.1:3001';
+    const defaultUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://127.0.0.1:3001';
+    const bseBaseUrl = process.env.BSE_API_URL || defaultUrl;
     const headers: Record<string, string> = {};
     if (options.failureModeHeader) {
       headers['x-bse-failure-mode'] = options.failureModeHeader;

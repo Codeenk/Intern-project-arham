@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import './db.js';
 import { authMiddleware } from './middleware/auth.js';
 import {
   getClients,
