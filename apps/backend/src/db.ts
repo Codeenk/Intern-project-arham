@@ -1,6 +1,10 @@
 import path from 'path';
 import fs from 'fs';
+import { fileURLToPath } from 'url';
 import { PrismaClient } from '@prisma/client';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 function setupDatabase(): PrismaClient {
   const customUrl = process.env.DATABASE_URL;
