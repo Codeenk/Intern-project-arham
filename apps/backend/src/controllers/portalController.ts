@@ -244,11 +244,11 @@ export async function getEmployees(req: AuthenticatedRequest, res: Response) {
     ]);
 
     const countsMap: Record<string, number> = {};
-    mappingCounts.forEach((c) => {
+    mappingCounts.forEach((c: any) => {
       countsMap[c.employeeId] = c._count.clientId;
     });
 
-    const enrichedEmployees = employees.map((emp) => ({
+    const enrichedEmployees = employees.map((emp: any) => ({
       ...emp,
       mappedClientCount: countsMap[emp.id] || 0
     }));

@@ -3,26 +3,31 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { PrismaClient } from '@prisma/client';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+let __dirname = '';
+try {
+  const __filename = fileURLToPath(import.meta.url);
+  __dirname = path.dirname(__filename);
+} catch (e) {
+  __dirname = process.cwd();
+}
 
 function setupDatabase(): PrismaClient {
   const customUrl = process.env.DATABASE_URL;
 
-  // 1. If PostgreSQL DATABASE_URL is set in environment, use it directly
+  // 1. If custom PostgreSQL DATABASE_URL is set, use standard PrismaClient
   if (customUrl && !customUrl.startsWith('file:')) {
-    console.log('[Database] Connecting to remote PostgreSQL database...');
+    console.log('[Database] Connecting to PostgreSQL database...');
     return new PrismaClient();
   }
 
-  // 2. For Vercel Serverless environment: use /tmp/dev.db and copy template on cold start
+  // 2. For Vercel Serverless environment: fallback to /tmp/dev.db
   const isVercel = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
   
   if (isVercel) {
     const tmpDbPath = '/tmp/dev.db';
     
     if (!fs.existsSync(tmpDbPath)) {
-      console.log('[Database] Initializing /tmp/dev.db for Vercel Serverless...');
+      console.log('[Database] Initializing /tmp/dev.db for Vercel Serverless environment...');
       const candidates = [
         path.join(process.cwd(), 'apps/backend/prisma/dev.db'),
         path.join(process.cwd(), 'prisma/dev.db'),
@@ -33,20 +38,20 @@ function setupDatabase(): PrismaClient {
       
       let copied = false;
       for (const src of candidates) {
-        if (fs.existsSync(src)) {
-          try {
+        try {
+          if (fs.existsSync(src)) {
             fs.copyFileSync(src, tmpDbPath);
             console.log(`[Database] Successfully copied SQLite template from ${src} to ${tmpDbPath}`);
             copied = true;
             break;
-          } catch (e) {
-            console.error(`[Database Error] Failed to copy from ${src}:`, e);
           }
+        } catch (e) {
+          console.error(`[Database Error] Failed candidate ${src}:`, e);
         }
       }
 
       if (!copied) {
-        console.warn('[Database WARNING] Could not find SQLite template file; Prisma will create new DB at /tmp/dev.db');
+        console.warn('[Database WARNING] No SQLite template file found; creating fresh DB at /tmp/dev.db');
       }
     }
 
@@ -63,4 +68,24 @@ function setupDatabase(): PrismaClient {
   return new PrismaClient();
 }
 
-export const prisma = setupDatabase();
+let prismaInstance: PrismaClient | null = null;
+
+export function getPrisma(): PrismaClient {
+  if (!prismaInstance) {
+    try {
+      prismaInstance = setupDatabase();
+    } catch (err) {
+      console.error('[Database setup error]', err);
+      prismaInstance = new PrismaClient();
+    }
+  }
+  return prismaInstance;
+}
+
+export const prisma = new Proxy({} as PrismaClient, {
+  get(_target, prop, _receiver) {
+    const instance = getPrisma();
+    const value = (instance as any)[prop];
+    return typeof value === 'function' ? value.bind(instance) : value;
+  }
+});
