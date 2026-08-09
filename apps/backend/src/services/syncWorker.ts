@@ -332,7 +332,7 @@ export class SyncWorker {
         console.log(`[SyncWorker STEP] Executing ATOMIC PUBLISH transaction for version ${syncRun.version}...`);
 
         await prisma.$transaction(
-          async (tx) => {
+          async (tx: any) => {
             const stagedClientIds = stagedClients.map((c: any) => c.id);
             const stagedTradeIds = stagedTrades.map((t: any) => t.id);
 
