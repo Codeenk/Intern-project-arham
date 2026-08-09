@@ -1,0 +1,110 @@
+generator client {
+  provider      = "prisma-client-js"
+  output        = "../src/generated/client"
+  binaryTargets = ["native", "rhel-openssl-3.0.x", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Employee {
+  id            String                  @id
+  name          String
+  email         String                  @unique
+  role          String // EMPLOYEE | MANAGEMENT
+  incentiveRate Float // e.g. 0.10 for 10%
+  createdAt     DateTime                @default(now())
+  mappings      EmployeeClientMapping[]
+}
+
+model Client {
+  id              String                  @id
+  name            String
+  email           String
+  phone           String
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+  snapshotVersion Int                     @default(1)
+  trades          Trade[]
+  mappings        EmployeeClientMapping[]
+
+  @@index([snapshotVersion])
+}
+
+model EmployeeClientMapping {
+  id         String   @id @default(uuid())
+  employeeId String
+  clientId   String   @unique
+  createdAt  DateTime @default(now())
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  client   Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@index([clientId])
+}
+
+model Trade {
+  id              String   @id
+  clientId        String
+  tradeDate       DateTime
+  symbol          String
+  quantity        Int
+  price           Float
+  brokerage       Float
+  snapshotVersion Int
+  createdAt       DateTime @default(now())
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@index([tradeDate])
+  @@index([snapshotVersion])
+  @@index([clientId, tradeDate])
+}
+
+model StagingClient {
+  id          String   @id
+  syncVersion Int
+  name        String
+  email       String
+  phone       String
+  createdAt   DateTime @default(now())
+
+  @@index([syncVersion])
+}
+
+model StagingTrade {
+  id          String   @id
+  syncVersion Int
+  clientId    String
+  tradeDate   DateTime
+  symbol      String
+  quantity    Int
+  price       Float
+  brokerage   Float
+  createdAt   DateTime @default(now())
+
+  @@index([syncVersion])
+  @@index([syncVersion, clientId])
+}
+
+model SyncRun {
+  id               String    @id @default(uuid())
+  version          Int       @unique
+  status           String // PENDING | STAGING_CLIENTS | STAGING_TRADES | VALIDATING | PUBLISHING | SUCCESS | FAILED | RETRYING | DISCARDED
+  clientCursor     Int       @default(0)
+  tradeCursor      Int       @default(0)
+  attempt          Int       @default(1)
+  maxAttempts      Int       @default(3)
+  startedAt        DateTime  @default(now())
+  updatedAt        DateTime  @default(now()) @updatedAt
+  completedAt      DateTime?
+  recordsProcessed Int       @default(0)
+  error            String?
+
+  @@index([status])
+  @@index([version])
+}

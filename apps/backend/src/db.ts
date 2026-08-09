@@ -1,6 +1,6 @@
 import path from 'path';
 import fs from 'fs';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from './generated/client/index.js';
 
 function setupDatabase(): PrismaClient {
   const customUrl = process.env.DATABASE_URL;
