@@ -23,17 +23,16 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
-# Copy manifests, installed dependencies, and built artifacts (workspaces + symlinks)
+# Copy manifests, installed dependencies, built artifacts, and scripts
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/apps ./apps
 COPY --from=builder /app/packages ./packages
+COPY scripts ./scripts
 
 # Render supplies the port at runtime via the PORT env var (never hardcode 4000)
 # 10000 is Render's default Free dynamic port.
 EXPOSE 10000
 
-# Start the ONE unified Node/Express process.
-# The React dashboard, /api/* backend, /api/bse/* Mock BSE, and /api/events SSE
-# are all served from this single process.
-CMD ["node", "apps/backend/dist/index.js"]
+# Start script applies Prisma migrations/seeds and launches the unified backend
+CMD ["node", "scripts/start-server.cjs"]
