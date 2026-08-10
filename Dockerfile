@@ -4,6 +4,7 @@
 
 # ---------- Stage 1: Build all workspaces, generate Prisma Client ----------
 FROM node:20-alpine AS builder
+RUN apk add --no-cache openssl
 WORKDIR /app
 
 # npm workspaces require the lockfile + manifest first for efficient caching
@@ -19,6 +20,7 @@ RUN npm run build
 
 # ---------- Stage 2: Runtime image ----------
 FROM node:20-alpine
+RUN apk add --no-cache openssl
 WORKDIR /app
 
 ENV NODE_ENV=production
